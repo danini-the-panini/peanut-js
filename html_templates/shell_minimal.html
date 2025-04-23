@@ -151,12 +151,7 @@
           dataHeap.set(data);
           Module.ccall("js_load_rom", null, ["number", "number"], [dataHeap.byteOffset, data.length]);
 
-          const result = Module.ccall(
-            "js_gb_init", // name of C function
-            null, // return type
-            null, // argument types
-            null, // arguments
-          );
+          const result = Module.ccall('js_gb_init', null, null, null);
 
           canvasElement.focus();
 
