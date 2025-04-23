@@ -2,6 +2,19 @@
 #include <stdio.h>
 #include <emscripten/emscripten.h>
 
+#define ENABLE_SOUND 1
+
+void audio_write(uint_fast32_t addr, uint8_t val)
+{
+  // printf("audio_write(%d, %d)\n", addr, val);
+}
+
+uint8_t audio_read(uint_fast32_t addr)
+{
+  // printf("audio_read(%d)\n", addr);
+  return 0;
+}
+
 #include "peanut_gb.h"
 
 #ifdef __cplusplus
