@@ -42,8 +42,6 @@ void js_draw_line(struct gb_s *gb, const uint8_t *pixels, const uint_fast8_t lin
 }
 
 int main() {
-  printf("Hello World\n");
-
   js_init(LCD_WIDTH, LCD_HEIGHT);
 
   return 0;
