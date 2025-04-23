@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>PeanutGB</title>
+    <style>
+      .gb {
+        position: relative;
+      }
+
+      #canvas {
+        position: absolute;
+        left: 72px;
+        top: 63px;
+        outline: none;
+        border-radius: 2px;
+        border: 1px solid black;
+        background: #88c070;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="gb">
+      <img src="peanutgb.svg" />
+      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    </div>
+    <button id="my-button">Run myFunction</button>
+    <script type='text/javascript'>
+      const COLORS = [
+        { r: 223, g: 248, b: 209 },
+        { r: 136, g: 193, b: 112 },
+        { r:  52, g: 104, b:  86 },
+        { r:   8, g:  24, b:  32 }
+      ]
+
+      let buttons = {
+        a: false,
+        b: false,
+        select: false,
+        start: false,
+        right: false,
+        left: false,
+        up: false,
+        down: false
+      };
+
+      let canvasElement = document.getElementById('canvas');
+
+      let ctx = canvasElement.getContext('2d');
+
+      let js_run_frame;
+      let js_set_joypad;
+
+      var Module = {
+        print(...args) {
+          console.log(...args);
+        },
+        setStatus(text) {
+          Module.setStatus.last ??= { time: Date.now(), text: '' };
+          if (text === Module.setStatus.last.text) return;
+          let m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+          let now = Date.now();
+          if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
+          Module.setStatus.last.time = now;
+          Module.setStatus.last.text = text;
+        },
+        totalDependencies: 0,
+        monitorRunDependencies(left) {
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+        },
+        onRuntimeInitialized() {
+          js_run_frame = Module.cwrap('js_run_frame', null, null);
+          js_set_joypad = Module.cwrap('js_set_joypad', null, ['bool', 'bool', 'bool', 'bool', 'bool', 'bool', 'bool', 'bool']);
+        }
+      };
+      Module.setStatus('Downloading...');
+      window.onerror = () => {
+        Module.setStatus('Exception thrown, see JavaScript console');
+        Module.setStatus = (text) => {
+          if (text) console.error('[post-exception status] ' + text);
+        };
+      };
+
+      async function fetch_rom() {
+        let response = await fetch("/tetris.gb");
+        let blob = await response.blob();
+        let data = new Uint8Array(await blob.arrayBuffer());
+        let dataPtr = Module._malloc(data.length);
+        let dataHeap = new Uint8Array(Module.HEAPU8.buffer, dataPtr, data.length);
+        dataHeap.set(data);
+        Module.ccall("js_load_rom", null, ["number", "number"], [dataHeap.byteOffset, data.length]);
+      }
+
+      function run_frame() {
+        js_set_joypad(
+          buttons.a,
+          buttons.b,
+          buttons.select,
+          buttons.start,
+          buttons.right,
+          buttons.left,
+          buttons.up,
+          buttons.down
+        );
+        js_run_frame();
+        requestAnimationFrame(run_frame);
+      }
+
+      function setKey(code, value) {
+        switch (code) {
+        case 'KeyZ':  buttons.a = value; break;
+        case 'KeyX':  buttons.b = value; break;
+        case 'Backspace':  buttons.select = value; break;
+        case 'Enter':  buttons.start = value; break;
+        case 'ArrowRight':  buttons.right = value; break;
+        case 'ArrowLeft':  buttons.left = value; break;
+        case 'ArrowUp':  buttons.up = value; break;
+        case 'ArrowDown':  buttons.down = value; break;
+        }
+      }
+
+      canvasElement.addEventListener('keydown', event => {
+        setKey(event.code, true);
+      });
+
+      canvasElement.addEventListener('keyup', event => {
+        setKey(event.code, false);
+      });
+
+      document.getElementById("my-button").addEventListener("click", async () => {
+        await fetch_rom();
+      
+        const result = Module.ccall(
+          "js_gb_init", // name of C function
+          null, // return type
+          null, // argument types
+          null, // arguments
+        );
+
+        run_frame();
+      });
+    </script>
+    {{{ SCRIPT }}}
+  </body>
+</html>
