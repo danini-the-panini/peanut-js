@@ -68,6 +68,8 @@
 
       let ctx = canvasElement.getContext('2d');
 
+      let audioCtx;
+
       let js_run_frame;
       let js_set_joypad;
 
@@ -154,6 +156,8 @@
           const result = Module.ccall('js_gb_init', null, null, null);
 
           canvasElement.focus();
+
+          audioCtx = new AudioContext();
 
           run_frame();
         }

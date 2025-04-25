@@ -4,15 +4,21 @@
 
 #define ENABLE_SOUND 1
 
+#include "minigb_apu.h"
+
+#define AUDIO_BUFFER_SIZE_BYTES (AUDIO_SAMPLES*4)
+
+struct minigb_apu_ctx apu;
+audio_sample_t *stream;
+
 void audio_write(uint_fast32_t addr, uint8_t val)
 {
-  // printf("audio_write(%d, %d)\n", addr, val);
+  minigb_apu_audio_write(&apu, addr, val);
 }
 
 uint8_t audio_read(uint_fast32_t addr)
 {
-  // printf("audio_read(%d)\n", addr);
-  return 0;
+  return minigb_apu_audio_read(&apu, addr);
 }
 
 #include "peanut_gb.h"
@@ -23,8 +29,9 @@ uint8_t audio_read(uint_fast32_t addr)
 #define EXTERN
 #endif
 
-EXTERN extern void js_init(const uint8_t width, const uint8_t height);
+EXTERN extern void js_init(const uint8_t width, const uint8_t height, const int audioSamples, const int audioSampleRate);
 EXTERN extern void draw_line(const uint8_t *pixels, const uint8_t width, const uint_fast8_t line);
+EXTERN extern void js_play_audio(const audio_sample_t *stream, const unsigned int len);
 
 struct gb_s gb;
 uint8_t *rom;
@@ -55,8 +62,9 @@ void js_draw_line(struct gb_s *gb, const uint8_t *pixels, const uint_fast8_t lin
 }
 
 int main() {
-  js_init(LCD_WIDTH, LCD_HEIGHT);
-
+  stream=malloc(AUDIO_BUFFER_SIZE_BYTES);
+  memset(stream, 0, AUDIO_BUFFER_SIZE_BYTES);
+  js_init(LCD_WIDTH, LCD_HEIGHT, AUDIO_SAMPLES, AUDIO_SAMPLE_RATE);
   return 0;
 }
 
@@ -76,6 +84,8 @@ EXTERN EMSCRIPTEN_KEEPALIVE void js_gb_init(int argc, char ** argv)
   }
 
   gb_init_lcd(&gb, js_draw_line);
+
+  minigb_apu_audio_init(&apu);
 }
 
 EXTERN EMSCRIPTEN_KEEPALIVE void js_load_rom(uint8_t *data, uint_fast32_t len)
@@ -88,6 +98,8 @@ EXTERN EMSCRIPTEN_KEEPALIVE void js_load_rom(uint8_t *data, uint_fast32_t len)
 EXTERN EMSCRIPTEN_KEEPALIVE void js_run_frame()
 {
   gb_run_frame(&gb);
+  minigb_apu_audio_callback(&apu, stream);
+  js_play_audio(stream, AUDIO_BUFFER_SIZE_BYTES);
 }
 
 EXTERN EMSCRIPTEN_KEEPALIVE void js_set_joypad(
